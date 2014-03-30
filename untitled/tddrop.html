@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<div align="center">
+<head>
+    <link rel ="stylesheet" type = "text/css" href="styler.css">
+    <div align= center>
+    <h1> OSBox </h1> <break>
+    <h2> Art of Interaction<h2>
+    </div>
+    
+<body>
+    <div id ="Exp" align=left>
+<breaK> <breaK><breaK><breaK>
+
+</div>
+
+<script type="text/javascript" src="https://www.dropbox.com/static/api/1/dropins.js" id="dropboxjs" data-app-key="pr2tt3l41e6qg91"></script>
+
+<input id= "db-chooser" type="dropbox-chooser" name="selected-file" style="visibility: hidden;" data-link-type= "preview" data-multiselect= "true"/>
+    <script type="text/javascript">
+    // add an event listener to a Chooser button
+    var a = new Array(); 
+   var c = new Array();
+    document.getElementById("db-chooser").addEventListener("DbxChooserSuccess",
+        function(e) {
+            
+            console.log("Before a[x]");
+            for(var x =0; x< e.files.length; x++)
+            {
+                a[x] = e.files[x];
+
+
+            }
+            console.log("Before Local Storage")
+           window.localStorage.setItem("count", a.length);
+           
+
+           for(var x =0; x < a.length; x++){
+                var u = a[x].link;
+                if(u.indexOf('doc')!=-1)
+
+                {
+                    c[x] = 0;
+                }else if(u.indexOf('pdf')!=-1)
+
+                {
+
+                    c[x] = 1;
+                }else if(u.indexOf('ppt')!=-1)
+
+                {
+
+                    c[x]= 2;
+                }else if(u.indexOf('xls')!=-1)
+
+                {
+
+                    c[x] = 3;
+                }else
+                {
+
+                    c[x] = 4;
+                }
+
+           }
+           for(var x =0; x < a.length; x++)
+           {
+            console.log(c[x]);
+            window.localStorage.setItem("filetype"+x, c[x]);
+            window.localStorage.setItem("files" + x, a[x].link);
+
+           }
+
+        }, false);
+
+    function myFunction(){
+        return "Physijs-master/examples/Jenga2.html" 
+        
+
+    }
+
+
+</script>
+<p id="demo"></p>
+<br>
+<a href="./threeos.html" target="_"><input type="button" value="Try It"style="background-color:black"/></a>
+
+
+	
+
+</body>
+</head>
+</div>
+</html>

@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+	<title>OSBox</title>
+	
+	<link rel="stylesheet" type="text/css" href="css/styles.css" />
+	
+	<script type="text/javascript" src="js/three.min.js"></script>
+	<script type="text/javascript" src="js/stats.js"></script>
+	<script type="text/javascript" src="../physi.js"></script>
+	<script src="https://js.leapmotion.com/0.2.0/leap.min.js"></script>
+
+	
+</head>
+
+<body>
+	<div id="heading">
+
+	</div>
+	<div id="viewport"></div>
+	<script type="text/javascript">
+	
+	var b = new Array();
+	var c = new Array();
+	var n = window.localStorage.getItem("count");
+	for(var wer =0; wer < n; wer++)
+	{
+		c[wer]= window.localStorage.getItem("filetype"+wer);
+		b[wer] = window.localStorage.getItem("files"+wer);
+	}
+
+	console.log(b[0]);
+
+
+
+	Physijs.scripts.worker = '../physijs_worker.js';
+	Physijs.scripts.ammo = './untitled/js/ammo.js';
+	
+	var initScene, block1, initEventHandling, render, createTower, block, sphere, app, x, y, z, f, filearray = [], ratio, changed=0, temp, temp_material, materials = [], tempmat,
+	renderer, render_stats, physics_stats, scene, dir_light, am_light, camera,
+	table, wall1, wall2, wall3, blocks = [], stacks = [], table_material, block_material, temp_file, intersect_plane, select_material, sweg_material,
+	selected_block = null, mouse_position = new THREE.Vector3, block_offset = new THREE.Vector3, _i, _v3 = new THREE.Vector3;
+	var controller, stack0, stack1, stack2, stack3, stack4;
+	
+	initScene = function() {
+		renderer = new THREE.WebGLRenderer({ antialias: true });
+		renderer.setSize( window.innerWidth, window.innerHeight );
+		renderer.shadowMapEnabled = true;
+		renderer.shadowMapSoft = true;
+		document.getElementById( 'viewport' ).appendChild( renderer.domElement );
+		
+		render_stats = new Stats();
+		render_stats.domElement.style.position = 'absolute';
+		render_stats.domElement.style.top = '1px';
+		render_stats.domElement.style.zIndex = 100;
+		document.getElementById( 'viewport' ).appendChild( render_stats.domElement );
+
+		physics_stats = new Stats();
+		physics_stats.domElement.style.position = 'absolute';
+		physics_stats.domElement.style.top = '50px';
+		physics_stats.domElement.style.zIndex = 100;
+		document.getElementById( 'viewport' ).appendChild( physics_stats.domElement );
+		
+		scene = new Physijs.Scene({ fixedTimeStep: 1 / 120 });
+		scene.setGravity(new THREE.Vector3( 0, -1000, 0 ));
+		scene.addEventListener(
+			'update',
+			function() {
+
+				if ( selected_block !== null ) {
+					
+					_v3.copy( mouse_position ).add( block_offset ).sub( selected_block.position ).multiplyScalar( 5 );
+					_v3.y = 0;
+					selected_block.setLinearVelocity( _v3 );
+					
+					// Reactivate all of the blocks
+					_v3.set( 0, 0, 0 );
+					for ( _i = 0; _i < blocks.length; _i++ ) {
+						blocks[_i].applyCentralImpulse( _v3 );
+					}
+				}
+
+				scene.simulate( undefined, 1 );
+				physics_stats.update();
+			}
+			);
+		
+		camera = new THREE.PerspectiveCamera(
+			45,
+			window.innerWidth / window.innerHeight,
+			1,
+			1000
+			);
+		camera.position.set( 0, 170, 110 );
+		camera.lookAt(new THREE.Vector3( 0, 0, -10 ));
+		scene.add( camera );
+		
+		// ambient light
+		am_light = new THREE.AmbientLight( 0x444444 );
+		scene.add( am_light );
+
+		// directional light
+		dir_light = new THREE.DirectionalLight( 0xFFFFFF );
+		dir_light.position.set( 20, 30, -5 );
+		dir_light.target.position.copy( scene.position );
+		dir_light.castShadow = true;
+		dir_light.shadowCameraLeft = -30;
+		dir_light.shadowCameraTop = -30;
+		dir_light.shadowCameraRight = 30;
+		dir_light.shadowCameraBottom = 30;
+		dir_light.shadowCameraNear = 20;
+		dir_light.shadowCameraFar = 200;
+		dir_light.shadowBias = -.001
+		dir_light.shadowMapWidth = dir_light.shadowMapHeight = 2048;
+		dir_light.shadowDarkness = .5;
+		scene.add( dir_light ); 
+		
+		// Materials
+		table_material = Physijs.createMaterial(
+			new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/wood.jpg' ), ambient: 0xFFFFFF }),
+			.9, // high friction
+			.2 // low restitution
+			);
+		table_material.map.wrapS = table_material.map.wrapT = THREE.RepeatWrapping;
+		table_material.map.repeat.set( 5, 5 );
+
+		select_material = Physijs.createMaterial(
+			new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/rocks.jpg' ), ambient: 0xFFFFFF }),
+			.9, // high friction
+			.2 // low restitution
+			);
+		select_material.map.wrapS = select_material.map.wrapT = THREE.RepeatWrapping;
+		select_material.map.repeat.set( 5, 5 );
+		
+
+		
+		var spheregeometry = new THREE.SphereGeometry( 1, 32, 32 );
+	var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+		sphere = new THREE.Mesh( spheregeometry, material );
+		scene.add( sphere );
+
+		// Table
+		table = new Physijs.BoxMesh(
+			new THREE.CubeGeometry(200, 100, 200),
+			table_material,
+			0, // mass
+			{ restitution: .2, friction: .8 }
+			);
+		table.position.y = -50;
+		table.receiveShadow = true;
+		scene.add( table );
+		
+		wall1 = new Physijs.BoxMesh(new THREE.CubeGeometry(1, 150, 200), table_material, 0, {restitution: .2, friction: .8});
+		wall1.position.y = 20;
+		wall1.position.x = -100;
+		wall1.position.z = 0;
+		wall1.receiveShadow = true;
+		scene.add(wall1);
+
+		
+		wall2 = new Physijs.BoxMesh(new THREE.CubeGeometry(1, 150, 200), table_material, 0, {restitution: .2, friction: .8});
+		wall2.position.y = 20;
+		wall2.position.x = 100;
+		wall2.position.z = 0;
+		wall2.receiveShadow = true;
+		scene.add(wall2);
+
+		wall3 = new Physijs.BoxMesh(new THREE.CubeGeometry(250, 150, 1), table_material, 0, {restitution: .2, friction: .8});
+		wall3.position.y = 20;
+		wall3.position.x = 0;
+		wall3.position.z = -75;
+		wall3.receiveShadow = true;
+		scene.add(wall3);
+
+		wall4 = new Physijs.BoxMesh(new THREE.CubeGeometry(50, 1, 50), table_material, 0, {restitution: .2, friction: .8});
+		wall4.position.y = 20;
+		wall4.position.x = -100;
+		wall4.position.z = -50;
+		wall4.receiveShadow = true;
+		scene.add(wall4);
+		
+		var block_length = 15, block_height = 5, block_width = 15, block_offset = 2,
+		block_geometry = new THREE.CubeGeometry( block_length, block_height, block_width );
+		
+		block_material = Physijs.createMaterial(
+			new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'word.png'), ambient: 0xFFFFFF }),
+			.4, // medium friction
+			.4 // medium restitution
+			);
+		block_material.map.wrapS = block_material.map.wrapT = THREE.RepeatWrapping;
+		block_material.map.repeat.set( 1, 1  );
+		
+		// sweg_material = Physijs.createMaterial(
+		// 	new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( './TreePriorityQueue.pdf'), ambient: 0xFFFFFF }),
+		// 	.4, // medium friction
+		// 	.4 // medium restitution
+		// 	);
+		// sweg_material.map.wrapS = sweg_material.map.wrapT = THREE.RepeatWrapping;
+		// sweg_material.map.repeat.set( 1, 1  );
+
+		stack0 = new Array();
+		stack1 = new Array();
+		stack2 = new Array();
+		stack3 = new Array();
+		stack4 = new Array();
+		stack0.push('./wordexample.png');
+		stack0.push('./wordexample2.png');
+		stack1.push('./pdfexample.png');
+		stack1.push('./pdfexample2.png');
+		stack2.push('./pptexample.png');
+		stack2.push('./pptexample2.png');
+		stack3.push('./excelexample.png');
+		stack3.push('./excelexample2.png');
+		stack4.push('./wordexample.png');
+		stack4.push('./wordexample2.png');
+
+
+		for(var w=0;w<c.length;w++)
+		{
+			//console.log(c[w]);
+			temp_material = Physijs.createMaterial(
+				new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( toImage(c[w])), ambient: 0xFFFFFF }),
+			.4, // medium friction
+			.4 // medium restitution
+			);
+			temp_material.map.wrapS = temp_material.map.wrapT = THREE.RepeatWrapping;
+			temp_material.map.repeat.set( 1, 1  );
+
+			materials.push(temp_material);
+
+			temp_file = Physijs.createMaterial(
+				new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( toFile(c[w])), ambient: 0xFFFFFF }),
+			.4, // medium friction
+			.4 // medium restitution
+			);
+			temp_file.map.wrapS = temp_file.map.wrapT = THREE.RepeatWrapping;
+			temp_file.map.repeat.set( 1, 1  );
+
+			filearray.push(temp_file);
+
+			temp = new Physijs.BoxMesh( block_geometry, temp_material );
+			temp.position= new THREE.Vector3(Math.random() * 100 - 50, 200, Math.random() * 100 - 50);
+			temp.rotation.x = Math.random() * 2 * Math.PI;
+			temp.rotation.y = Math.random() * 2 * Math.PI;
+			temp.rotation.z = Math.random() * 2 * Math.PI;
+
+
+			temp.receiveShadow = true;
+			temp.castShadow = true;
+			scene.add( temp );
+			blocks.push(temp);
+		}
+
+		function toImage(i){
+			if(i===0)
+				return './word.png';
+			else if(i==1)
+				return './pdf.png';
+			else if(i==2)
+				return './ppt.png';
+			else if(i==3)
+				return './excel.png';
+			else
+				return './word.png'
+
+		}
+		function toFile(i){
+
+			if(i===0) 
+				return stack0.pop();
+			else if(i==1)
+				return stack1.pop();
+			else if(i==2)
+				return stack2.pop();
+			else if(i==3)
+				return stack3.pop();
+			else
+				return stack4.pop();
+
+		}
+		// block = new Physijs.BoxMesh( block_geometry, block_material );
+		// block.position= new THREE.Vector3(0, 20, 0);
+		// block.receiveShadow = true;
+		// block.castShadow = true;
+		// scene.add( block );
+		// blocks.push(block);
+		
+		// block1 = new Physijs.BoxMesh( block_geometry, block_material );
+		// block1.position= new THREE.Vector3(20, 20, 0);
+		// block1.receiveShadow = true;
+		// block1.castShadow = true;
+		// scene.add( block1 );
+		// blocks.push(block1);
+
+		intersect_plane = new THREE.Mesh(
+			new THREE.PlaneGeometry( 150, 150 ),
+			new THREE.MeshBasicMaterial({ opacity: 0, transparent: true }));
+		intersect_plane.rotation.x = Math.PI / -2;
+		scene.add( intersect_plane );
+
+		renderer.render(scene, camera);
+		scene.simulate();
+
+		afterLoad();
+	};
+	
+	function afterLoad(){
+
+
+		controller = new Leap.Controller();
+
+		controller.on( 'frame' , function(frame){
+
+			for( var i=0; i < frame.hands.length; i++ ){
+				var hand = frame.hands[i];
+				var num = hand.fingers.length;
+				var finger = hand.fingers[0];
+
+
+var sense = 1;
+				x = finger.tipPosition[0]*sense;
+				y = (finger.tipPosition[1]-100)*sense;
+				z = finger.tipPosition[2]*sense;
+				f = new THREE.Vector3(x,y,z);
+
+				sphere.position = f;
+				var picked = 0;
+				
+
+				for(var q=0;q<blocks.length;q++)
+				{
+					app = blocks[q];
+					tempmat = materials[q];
+					tempfile = filearray[q];
+					if(Math.sqrt(Math.pow((app.position.x-x),2)+Math.pow((app.position.y-y),2)+Math.pow((app.position.z - z),2))<15)
+					{
+						if(num == 3){
+							scene.remove(app);
+							stacks.push(app);
+						}
+						if(num == 4){
+							var tempx =f.x;
+							var tempz = f.z;
+							var tempy = f.y;
+							for(var x = 0; x < stacks.length; x++)
+							{
+								stacks[x].mass = .000001;
+								stacks[x].rotation.x = 0; 
+								stacks[x].rotation.z = 0;
+								stacks[x].rotation.y = 0;
+								stacks[x].position.x = tempx;
+								stacks[x].position.z = tempz;
+								stacks[x].position.y = x+1;
+								scene.setGravity(new THREE.Vector3(0, -100, 0));
+								scene.add(stacks[x]);
+							}
+						}
+						if(num == 2) {
+							if(picked===0)
+							{
+								scene.remove(app);
+								app.position=f;
+								scene.add(app);
+								picked=1;
+								if(app.position.x <= -90)
+								{
+									app.rotation.z = Math.PI * 1/2;
+									app.rotation.y = Math.PI;
+									app.mass = 0;
+									app.position.x = -90;
+								}
+
+								if(app.position.x >= 90)
+								{
+									app.rotation.z = Math.PI * 1/2;
+									app.rotation.y = Math.PI;
+									app.mass = 0;
+									app.position.x = 90;
+								}
+							}
+							if(picked==1)
+							{
+								var finger2 = hand.fingers[1];
+								var x2 = finger2.stabilizedTipPosition[0]*sense;
+								var y2 = (finger2.stabilizedTipPosition[1]-100)*sense;
+								var z2 = finger2.stabilizedTipPosition[2]*sense;
+
+								var dist =Math.sqrt(Math.pow((x2-x),2)+Math.pow((y2-y),2)+Math.pow((z2 - z),2));
+
+
+								ratio = dist/20;
+								scene.remove(app);
+
+
+								if(ratio >= 3)
+								{	
+									app.material = tempfile;
+									changed = 1;
+									app.scale.x = ratio;
+									app.scale.z = ratio;
+								}
+								else
+									app.material = tempmat;
+
+								
+								//blocks[q] = app;
+								scene.add(app);
+								//console.log(ratio);
+							}
+						}
+						else
+							picked = 0;
+					}
+					else
+					{
+						if(changed===0)
+							app.material = tempmat; 
+					}
+						
+
+
+				}
+
+        // sphere.addEventListener( 'collision', handleCollision);
+        
+        // var handleCollision = function() {
+        //     console.log("a");
+        //     }
+        
+    }
+
+
+        //console.log(f);
+
+
+        renderer.render( scene, camera );
+        render_stats.update();
+
+
+    });
+controller.connect();
+
+}
+
+
+function updateposition(){
+
+}
+
+
+window.onload = initScene;
+
+</script>
+
+</body>
+
+</html>
